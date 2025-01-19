@@ -6,6 +6,7 @@ import {
   deleteContact,
   getPaginatedContacts,
 } from '../services/contacts.js';
+import { parseFilterParams } from '../utils/parseFilterParams.js';
 import createError from 'http-errors';
 
 export const getContactsController = async (req, res, next) => {
@@ -15,41 +16,22 @@ export const getContactsController = async (req, res, next) => {
       perPage = 10,
       sortBy = 'name',
       sortOrder = 'asc',
-      type,
-      isFavourite,
     } = req.query;
 
-    const numericPage = parseInt(page, 10);
-    const numericPerPage = parseInt(perPage, 10);
+    const filters = parseFilterParams(req.query);
 
-    const filters = {};
-    if (type) filters.type = type;
-    if (isFavourite !== undefined) filters.isFavourite = isFavourite;
-
-    const { contacts, totalItems } = await getPaginatedContacts(
-      numericPage,
-      numericPerPage,
+    const contacts = await getPaginatedContacts({
+      page: parseInt(page, 10),
+      perPage: parseInt(perPage, 10),
       sortBy,
       sortOrder,
       filters,
-    );
-
-    const totalPages = Math.ceil(totalItems / numericPerPage);
-    const hasPreviousPage = numericPage > 1;
-    const hasNextPage = numericPage < totalPages;
+    });
 
     res.status(200).json({
       status: 200,
       message: 'Successfully found contacts!',
-      data: {
-        data: contacts,
-        page: numericPage,
-        perPage: numericPerPage,
-        totalItems,
-        totalPages,
-        hasPreviousPage,
-        hasNextPage,
-      },
+      data: contacts,
     });
   } catch (error) {
     next(error);
