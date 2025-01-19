@@ -1,37 +1,44 @@
 import { Contact } from '../models/contact.model.js';
 
-export const getPaginatedContacts = async (
+export const getPaginatedContacts = async ({
   page = 1,
   perPage = 10,
   sortBy = 'name',
   sortOrder = 'asc',
   filters = {},
-) => {
+}) => {
   const skip = (page - 1) * perPage;
-  const sortOptions = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+  const limit = perPage;
 
-  const filterOptions = {};
-  if (filters.type) {
-    filterOptions.contactType = filters.type;
+  const query = {};
+
+  if (filters.contactType) {
+    query.contactType = filters.contactType;
   }
   if (filters.isFavourite !== undefined) {
-    filterOptions.isFavourite = filters.isFavourite === 'true';
+    query.isFavourite = filters.isFavourite;
   }
 
-  const totalItems = await Contact.countDocuments(filterOptions);
-  const contacts = await Contact.find(filterOptions)
-    .sort(sortOptions)
+  const totalItems = await Contact.countDocuments(query);
+
+  const contacts = await Contact.find(query)
+    .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .skip(skip)
-    .limit(perPage);
+    .limit(limit);
+
+  const totalPages = Math.ceil(totalItems / perPage);
+  const hasPreviousPage = page > 1;
+  const hasNextPage = page < totalPages;
 
   return {
-    contacts,
+    data: contacts,
+    page,
+    perPage,
     totalItems,
+    totalPages,
+    hasPreviousPage,
+    hasNextPage,
   };
-};
-
-export const getAllContacts = async () => {
-  return await Contact.find();
 };
 
 export const getContactById = async (contactId) => {
