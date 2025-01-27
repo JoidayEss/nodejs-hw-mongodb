@@ -4,34 +4,37 @@ import {
   addContact,
   updateContact,
   deleteContact,
-  getPaginatedContacts,
+  getAllContacts,
 } from '../services/contacts.js';
-import { parseFilterParams } from '../utils/parseFilterParams.js';
 import createError from 'http-errors';
+import createHttpError from 'http-errors';
 
 export const getContactsController = async (req, res, next) => {
   try {
-    const {
-      page = 1,
-      perPage = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
-    } = req.query;
+    const { _id: userId } = req.user;
+    const { page = 1, perPage = 10 } = req.query;
 
-    const filters = parseFilterParams(req.query);
-
-    const contacts = await getPaginatedContacts({
-      page: parseInt(page, 10),
-      perPage: parseInt(perPage, 10),
-      sortBy,
-      sortOrder,
-      filters,
+    const { contacts, totalItems } = await getAllContacts(userId, {
+      page,
+      perPage,
     });
+
+    const totalPages = Math.ceil(totalItems / perPage);
+    const hasPreviousPage = page > 1;
+    const hasNextPage = page < totalPages;
 
     res.status(200).json({
       status: 200,
       message: 'Successfully found contacts!',
-      data: contacts,
+      data: {
+        data: contacts,
+        page,
+        perPage,
+        totalItems,
+        totalPages,
+        hasPreviousPage,
+        hasNextPage,
+      },
     });
   } catch (error) {
     next(error);
@@ -39,35 +42,35 @@ export const getContactsController = async (req, res, next) => {
 };
 
 export const getContactByIdController = async (req, res, next) => {
-  const { contactId } = req.params;
+  try {
+    const { _id: userId } = req.user;
+    const { contactId } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(contactId)) {
-    return next(createError(400, 'Invalid contact ID format'));
+    const contact = await getContactById(userId, contactId);
+
+    if (!contact) {
+      throw createHttpError(404, 'Contact not found');
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: `Successfully found contact with id ${contactId}!`,
+      data: contact,
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const contact = await getContactById(contactId);
-
-  if (!contact) {
-    return next(createError(404, 'Contact not found'));
-  }
-
-  res.status(200).json({
-    status: 200,
-    message: `Successfully found contact with id ${contactId}!`,
-    data: contact,
-  });
 };
 
 export const addContactController = async (req, res, next) => {
   try {
+    const { _id: userId } = req.user;
     const { name, phoneNumber, contactType, email, isFavourite } = req.body;
 
     if (!name || !phoneNumber || !contactType) {
-      return next(
-        createError(
-          400,
-          'Missing required fields: name, phoneNumber, contactType',
-        ),
+      throw createHttpError(
+        400,
+        'Missing required fields: name, phoneNumber, contactType',
       );
     }
 
@@ -77,6 +80,7 @@ export const addContactController = async (req, res, next) => {
       contactType,
       email,
       isFavourite,
+      userId,
     });
 
     res.status(201).json({
