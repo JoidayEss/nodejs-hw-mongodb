@@ -15,6 +15,7 @@ import {
 } from '../schema/contactSchemas.js';
 import validateQuery from '../middlewares/validateQuery.js';
 import { querySchema } from '../schema/contactSchemas.js';
+import { authenticate } from '../middlewares/authenticate.js';
 
 const router = express.Router();
 
@@ -34,4 +35,7 @@ router.patch(
 router.delete('/:contactId', isValidId, ctrlWrapper(deleteContactController));
 router.get('/', validateQuery(querySchema), ctrlWrapper(getContactsController));
 
+router.use(authenticate);
+
+router.get('/', ctrlWrapper(getContactsController));
 export default router;

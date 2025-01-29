@@ -17,7 +17,6 @@ export const getContactsController = async (req, res, next) => {
       sortBy = 'name',
       sortOrder = 'asc',
     } = req.query;
-
     const filters = parseFilterParams(req.query);
 
     const contacts = await getPaginatedContacts({
@@ -26,6 +25,7 @@ export const getContactsController = async (req, res, next) => {
       sortBy,
       sortOrder,
       filters,
+      userId: req.user._id,
     });
 
     res.status(200).json({
@@ -39,23 +39,27 @@ export const getContactsController = async (req, res, next) => {
 };
 
 export const getContactByIdController = async (req, res, next) => {
-  const { contactId } = req.params;
+  try {
+    const { contactId } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(contactId)) {
-    return next(createError(400, 'Invalid contact ID format'));
+    if (!mongoose.Types.ObjectId.isValid(contactId)) {
+      return next(createError(400, 'Invalid contact ID format'));
+    }
+
+    const contact = await getContactById(contactId, req.user._id);
+
+    if (!contact) {
+      return next(createError(404, 'Contact not found'));
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: `Successfully found contact with id ${contactId}!`,
+      data: contact,
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const contact = await getContactById(contactId);
-
-  if (!contact) {
-    return next(createError(404, 'Contact not found'));
-  }
-
-  res.status(200).json({
-    status: 200,
-    message: `Successfully found contact with id ${contactId}!`,
-    data: contact,
-  });
 };
 
 export const addContactController = async (req, res, next) => {
@@ -77,6 +81,7 @@ export const addContactController = async (req, res, next) => {
       contactType,
       email,
       isFavourite,
+      userId: req.user._id,
     });
 
     res.status(201).json({
@@ -102,10 +107,16 @@ export const patchContactController = async (req, res, next) => {
       return next(createError(400, 'No fields to update provided'));
     }
 
-    const updatedContact = await updateContact(contactId, updateData);
+    const updatedContact = await updateContact(
+      contactId,
+      updateData,
+      req.user._id,
+    );
 
     if (!updatedContact) {
-      return next(createError(404, 'Contact not found'));
+      return next(
+        createError(404, 'Contact not found or you do not have permission'),
+      );
     }
 
     res.status(200).json({
@@ -126,10 +137,12 @@ export const deleteContactController = async (req, res, next) => {
       return next(createError(400, 'Invalid contact ID format'));
     }
 
-    const deletedContact = await deleteContact(contactId);
+    const deletedContact = await deleteContact(contactId, req.user._id);
 
     if (!deletedContact) {
-      return next(createError(404, 'Contact not found'));
+      return next(
+        createError(404, 'Contact not found or you do not have permission'),
+      );
     }
 
     res.status(204).send();
