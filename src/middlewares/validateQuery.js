@@ -1,4 +1,4 @@
-const validateQuery = (schema) => {
+export const validateQuery = (schema) => {
   return (req, res, next) => {
     const { error } = schema.validate(req.query);
     if (error) {
