@@ -1,35 +1,47 @@
-import jwt from 'jsonwebtoken';
 import createHttpError from 'http-errors';
-import { User } from '../models/user.models.js';
+import { SessionsCollection } from '../models/session.js';
+import { UsersCollection } from '../models/user.js';
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'access_secret';
+export const authenticate = async (req, res, next) => {
+  const authHeader = req.get('Authorization');
 
-const authenticate = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw createHttpError(401, 'Authorization header is missing or invalid');
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
-
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      throw createHttpError(401, 'User not found');
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      next(createHttpError(401, 'Access token expired'));
-    } else {
-      next(createHttpError(401, error.message));
-    }
+  if (!authHeader) {
+    next(createHttpError(401, 'Please provide Authorization header'));
+    return;
   }
+
+  const bearer = authHeader.split(' ')[0];
+  const token = authHeader.split(' ')[1];
+
+  if (bearer !== 'Bearer' || !token) {
+    next(createHttpError(401, 'Auth header should be of type Bearer'));
+    return;
+  }
+
+  const session = await SessionsCollection.findOne({ accessToken: token });
+
+  if (!session) {
+    next(createHttpError(401, 'Session not found'));
+    return;
+  }
+
+  const isAccessTokenExpired =
+    new Date() > new Date(session.accessTokenValidUntil);
+
+  if (isAccessTokenExpired) {
+    next(createHttpError(401, 'Access token expired'));
+  }
+
+  const user = await UsersCollection.findById(session.userId);
+
+  if (!user) {
+    next(createHttpError(401));
+    return;
+  }
+
+  req.user = user;
+
+  next();
 };
 
 export default authenticate;
