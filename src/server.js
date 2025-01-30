@@ -5,7 +5,7 @@ import cors from 'cors';
 import pino from 'pino-http';
 import cookieParser from 'cookie-parser';
 import router from './routers/index.js';
-import errorHandler from './middlewares/errorHandler.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 import notFoundHandler from './middlewares/notFoundHandler.js';
 import { initMongoConnection } from './db/initMongoConnection.js';
 
