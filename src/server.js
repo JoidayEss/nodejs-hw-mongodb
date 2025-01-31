@@ -8,6 +8,7 @@ import router from './routers/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import notFoundHandler from './middlewares/notFoundHandler.js';
 import { initMongoConnection } from './db/initMongoConnection.js';
+import { UPLOAD_DIR } from './constants/index.js';
 
 export const setupServer = async () => {
   const app = express();
@@ -22,6 +23,8 @@ export const setupServer = async () => {
 
   app.use(notFoundHandler);
   app.use(errorHandler);
+
+  app.use('/uploads', express.static(UPLOAD_DIR));
 
   try {
     await initMongoConnection();
