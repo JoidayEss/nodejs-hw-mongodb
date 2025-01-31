@@ -7,7 +7,10 @@ import {
   getPaginatedContacts,
 } from '../services/contacts.js';
 import { parseFilterParams } from '../utils/parseFilterParams.js';
+import { saveFileToUploadDir } from '../utils/saveFileToUploadDir.js';
 import createError from 'http-errors';
+import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
+import { getEnvVar } from '../utils/getEnvVar.js';
 
 export const getContactsController = async (req, res, next) => {
   try {
@@ -98,20 +101,30 @@ export const patchContactController = async (req, res, next) => {
   try {
     const { contactId } = req.params;
     const updateData = req.body;
+    const photo = req.file;
 
     if (!mongoose.Types.ObjectId.isValid(contactId)) {
       return next(createError(400, 'Invalid contact ID format'));
     }
 
-    if (Object.keys(updateData).length === 0) {
+    if (Object.keys(updateData).length === 0 && !photo) {
       return next(createError(400, 'No fields to update provided'));
     }
 
-    const updatedContact = await updateContact(
-      contactId,
-      updateData,
-      req.user._id,
-    );
+    let photoUrl;
+
+    if (photo) {
+      if (getEnvVar('ENABLE_CLOUDINARY') === 'true') {
+        photoUrl = await saveFileToCloudinary(photo);
+      } else {
+        photoUrl = await saveFileToUploadDir(photo);
+      }
+    }
+
+    const updatedContact = await updateContact(contactId, {
+      ...updateData,
+      ...(photoUrl && { photo: photoUrl }),
+    });
 
     if (!updatedContact) {
       return next(
