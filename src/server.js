@@ -20,12 +20,12 @@ export const setupServer = async () => {
   app.use(cors());
   app.use(pino());
 
+  app.use('/uploads', express.static(UPLOAD_DIR));
+
   app.use(router);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
-
-  app.use('/uploads', express.static(UPLOAD_DIR));
 
   try {
     await initMongoConnection();

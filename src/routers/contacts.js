@@ -24,9 +24,9 @@ router.use(authenticate);
 
 router.get('/', ctrlWrapper(getContactsController));
 router.get('/:contactId', isValidId, ctrlWrapper(getContactByIdController));
+
 router.post(
   '/',
-  isValidId,
   upload.single('photo'),
   validateBody(addContactSchema),
   ctrlWrapper(addContactController),
