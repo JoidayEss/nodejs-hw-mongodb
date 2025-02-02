@@ -12,6 +12,9 @@ import createError from 'http-errors';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 import { getEnvVar } from '../utils/getEnvVar.js';
 import createHttpError from 'http-errors';
+import fs from 'fs/promises';
+import path from 'path';
+import { TEMP_UPLOAD_DIR, UPLOAD_DIR } from '../constants/index.js';
 
 export const getContactsController = async (req, res, next) => {
   try {
@@ -69,6 +72,15 @@ export const getContactByIdController = async (req, res, next) => {
 export const addContactController = async (req, res, next) => {
   try {
     const { name, phoneNumber, contactType, email, isFavourite } = req.body;
+    let photoUrl = null;
+
+    if (req.file) {
+      const tempPath = path.join(TEMP_UPLOAD_DIR, req.file.filename);
+      const finalPath = path.join(UPLOAD_DIR, req.file.filename);
+
+      await fs.rename(tempPath, finalPath);
+      photoUrl = `/uploads/${req.file.filename}`;
+    }
 
     const newContact = await addContact({
       name,
@@ -77,6 +89,7 @@ export const addContactController = async (req, res, next) => {
       email,
       isFavourite,
       userId: req.user._id,
+      photo: photoUrl,
     });
 
     res.status(201).json({
@@ -109,13 +122,13 @@ export const patchContactController = async (req, res, next) => {
   });
 
   if (!result) {
-    next(createHttpError(404, 'Student not found'));
+    next(createHttpError(404, 'Contacts not found'));
     return;
   }
 
   res.json({
     status: 200,
-    message: `Successfully patched a student!`,
+    message: `Successfully patched a contact!`,
     data: result.contact,
   });
 };
