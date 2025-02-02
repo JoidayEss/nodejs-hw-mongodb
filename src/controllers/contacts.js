@@ -11,6 +11,7 @@ import { saveFileToUploadDir } from '../utils/saveFileToUploadDir.js';
 import createError from 'http-errors';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 import { getEnvVar } from '../utils/getEnvVar.js';
+import createHttpError from 'http-errors';
 
 export const getContactsController = async (req, res, next) => {
   try {
@@ -69,15 +70,6 @@ export const addContactController = async (req, res, next) => {
   try {
     const { name, phoneNumber, contactType, email, isFavourite } = req.body;
 
-    if (!name || !phoneNumber || !contactType) {
-      return next(
-        createError(
-          400,
-          'Missing required fields: name, phoneNumber, contactType',
-        ),
-      );
-    }
-
     const newContact = await addContact({
       name,
       phoneNumber,
@@ -98,48 +90,34 @@ export const addContactController = async (req, res, next) => {
 };
 
 export const patchContactController = async (req, res, next) => {
-  try {
-    const { contactId } = req.params;
-    const updateData = req.body;
-    const photo = req.file;
+  const { contactId } = req.params;
+  const photo = req.file;
 
-    if (!mongoose.Types.ObjectId.isValid(contactId)) {
-      return next(createError(400, 'Invalid contact ID format'));
+  let photoUrl;
+
+  if (photo) {
+    if (getEnvVar('ENABLE_CLOUDINARY') === 'true') {
+      photoUrl = await saveFileToCloudinary(photo);
+    } else {
+      photoUrl = await saveFileToUploadDir(photo);
     }
-
-    if (Object.keys(updateData).length === 0 && !photo) {
-      return next(createError(400, 'No fields to update provided'));
-    }
-
-    let photoUrl;
-
-    if (photo) {
-      if (getEnvVar('ENABLE_CLOUDINARY') === 'true') {
-        photoUrl = await saveFileToCloudinary(photo);
-      } else {
-        photoUrl = await saveFileToUploadDir(photo);
-      }
-    }
-
-    const updatedContact = await updateContact(contactId, {
-      ...updateData,
-      ...(photoUrl && { photo: photoUrl }),
-    });
-
-    if (!updatedContact) {
-      return next(
-        createError(404, 'Contact not found or you do not have permission'),
-      );
-    }
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully patched a contact!',
-      data: updatedContact,
-    });
-  } catch (error) {
-    next(error);
   }
+
+  const result = await updateContact(contactId, {
+    ...req.body,
+    photo: photoUrl,
+  });
+
+  if (!result) {
+    next(createHttpError(404, 'Student not found'));
+    return;
+  }
+
+  res.json({
+    status: 200,
+    message: `Successfully patched a student!`,
+    data: result.contact,
+  });
 };
 
 export const deleteContactController = async (req, res, next) => {
