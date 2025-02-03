@@ -75,11 +75,15 @@ export const addContactController = async (req, res, next) => {
     let photoUrl = null;
 
     if (req.file) {
-      const tempPath = path.join(TEMP_UPLOAD_DIR, req.file.filename);
-      const finalPath = path.join(UPLOAD_DIR, req.file.filename);
+      if (getEnvVar('ENABLE_CLOUDINARY') === 'true') {
+        photoUrl = await saveFileToCloudinary(req.file);
+      } else {
+        const tempPath = path.join(TEMP_UPLOAD_DIR, req.file.filename);
+        const finalPath = path.join(UPLOAD_DIR, req.file.filename);
 
-      await fs.rename(tempPath, finalPath);
-      photoUrl = `/uploads/${req.file.filename}`;
+        await fs.rename(tempPath, finalPath);
+        photoUrl = `/uploads/${req.file.filename}`;
+      }
     }
 
     const newContact = await addContact({
